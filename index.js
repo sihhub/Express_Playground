@@ -11,7 +11,7 @@ const indexRouter = require("./routes/index");
 // const webPushRouter = require("./routes/web-push");
 const letrworksProjectsRouter = require("./routes/api/letrworks/projects");
 
-const worksMongodbUri = process.env.WORKS_MONGO_URI_DEV;
+const worksMongodbUri = process.env.LETR_WORKS_MONGO_URI_PROD;
 
 // MongoDB 연결
 mongoose

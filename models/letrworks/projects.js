@@ -3,6 +3,22 @@ const moment = require("moment-timezone");
 
 const schema = new mongoose.Schema({}, { collection: "projects" });
 
+// const projects = await Projects.find({
+//   title: { $regex: "검수_인생은 아름다워" },
+// });
+
+schema.statics.find = async function (query) {
+  const docs = await this.aggregate([
+    {
+      $match: query,
+    },
+  ]);
+
+  console.log("docs.length:", docs.length);
+
+  return docs;
+};
+
 // schema.statics.findAll = async function () {
 //   return await this.find({});
 // };
