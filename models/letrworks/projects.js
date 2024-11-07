@@ -1,7 +1,7 @@
-// const mongoose = require("mongoose");
-// const moment = require("moment-timezone");
+const mongoose = require("mongoose");
+const moment = require("moment-timezone");
 
-// const schema = new mongoose.Schema({}, { collection: "projects" });
+const schema = new mongoose.Schema({}, { collection: "projects" });
 
 // schema.statics.findAll = async function () {
 //   return await this.find({});
@@ -189,4 +189,4 @@
 //   };
 // };
 
-// module.exports = mongoose.model("Projects", schema);
+module.exports = mongoose.model("projects", schema);
