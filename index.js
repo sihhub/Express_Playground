@@ -19,7 +19,7 @@ mongoose
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })
-  .then(() => console.log("MongoDB connected"))
+  .then(() => console.log("MongoDB connected", worksMongodbUri))
   .catch((error) => console.error("MongoDB connection error:", error));
 
 app.use("/", indexRouter); // 기본 경로로 indexRouter 사용
