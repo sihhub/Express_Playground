@@ -4,6 +4,7 @@ const mongoose = require("mongoose");
 const axios = require("axios");
 const fs = require("fs");
 const path = require("path");
+const ExcelJS = require("exceljs");
 
 const Projects = require("@root/models/letrworks/projects");
 const Sentences = require("@root/models/letrworks/sentences");
@@ -24,8 +25,8 @@ router.get("/counts", async (req, res) => {
 
       //10/08 부터 11/20 기간 한국시간
       createdAt: {
-        $gte: new Date("2024-10-07T15:00:00.000Z"),
-        $lt: new Date("2024-11-20T14:59:59.999Z"),
+        $gte: new Date("2025-01-21T15:00:00.000Z"),
+        $lt: new Date("2025-02-20T14:59:59.999Z"),
       },
     });
 
@@ -33,73 +34,57 @@ router.get("/counts", async (req, res) => {
 
     const items = [];
 
-    let koToEnSrcWordCount = 0;
-    let enToLangSrcCharCount = 0;
+    for (let project of projects) {
+      console.log("project title: ", project.title);
+      const sentences = await Sentences.find({
+        "_id.translation_id": project.translationId,
+      });
 
-    // for (let project of projects) {
-    //   console.log("project title: ", project.title);
-    //   const sentences = await Sentences.find({
-    //     "_id.translation_id": project.translationId,
-    //   });
+      let totalSrcCharCount = 0;
+      let totalSrcWordCount = 0;
+      let totalTgtCharCount = 0;
+      let totalTgtWordCount = 0;
 
-    //   let totalSrcCharCount = 0;
-    //   let totalSrcWordCount = 0;
-    //   let totalTgtCharCount = 0;
-    //   let totalTgtWordCount = 0;
+      for (let sentence of sentences) {
+        const tgtNoTag = removeHtmlTag(sentence?.tgt || "", ["o"]);
+        const srcNoTag = removeHtmlTag(sentence?.src || "", ["o"]);
+        const tgtCharCount = getCharCount(
+          tgtNoTag,
+          project?.characterRule?.latin || 1,
+          project?.characterRule?.doubleByte || 1,
+          project?.characterRule?.special || 1
+        );
+        const srcCharCount = getCharCount(
+          srcNoTag,
+          project?.characterRule?.latin || 1,
+          project?.characterRule?.doubleByte || 1,
+          project?.characterRule?.special || 1
+        );
 
-    //   for (let sentence of sentences) {
-    //     const tgtNoTag = removeHtmlTag(sentence?.tgt || "", ["o"]);
-    //     const srcNoTag = removeHtmlTag(sentence?.src || "", ["o"]);
-    //     const tgtCharCount = getCharCount(
-    //       tgtNoTag,
-    //       project?.characterRule?.latin || 1,
-    //       project?.characterRule?.doubleByte || 1,
-    //       project?.characterRule?.special || 1
-    //     );
-    //     const srcCharCount = getCharCount(
-    //       srcNoTag,
-    //       project?.characterRule?.latin || 1,
-    //       project?.characterRule?.doubleByte || 1,
-    //       project?.characterRule?.special || 1
-    //     );
+        const srcWordCount = getWordCount(srcNoTag);
+        const tgtWordCount = getWordCount(tgtNoTag);
 
-    //     const srcWordCount = getWordCount(srcNoTag);
-    //     const tgtWordCount = getWordCount(tgtNoTag);
+        totalSrcCharCount += srcCharCount;
+        totalSrcWordCount += srcWordCount;
+        totalTgtCharCount += tgtCharCount;
+        totalTgtWordCount += tgtWordCount;
+      }
 
-    //     totalSrcCharCount += srcCharCount;
-    //     totalSrcWordCount += srcWordCount;
-    //     totalTgtCharCount += tgtCharCount;
-    //     totalTgtWordCount += tgtWordCount;
+      items.push({
+        projectId: project._id,
+        projectTitle: project.title,
+        srcLangCode: project.sourceLanguageCode,
+        tgtLangCode: project.targetLanguageCode,
+        sentencesCount: sentences.length,
+        totalSrcCharCount,
+        totalSrcWordCount,
+        totalTgtCharCount,
+        totalTgtWordCount,
+      });
+    }
 
-    //     if (
-    //       project.sourceLanguageCode === "ko" &&
-    //       project.targetLanguageCode === "en"
-    //     ) {
-    //       koToEnSrcWordCount += srcWordCount;
-    //     }
-
-    //     if (project.sourceLanguageCode === "en") {
-    //       enToLangSrcCharCount += srcCharCount;
-    //     }
-    //   }
-
-    //   items.push({
-    //     projectId: project._id,
-    //     projectTitle: project.title,
-    //     srcLangCode: project.sourceLanguageCode,
-    //     tgtLangCode: project.targetLanguageCode,
-    //     sentencesCount: sentences.length,
-    //     totalSrcCharCount,
-    //     totalSrcWordCount,
-    //     totalTgtCharCount,
-    //     totalTgtWordCount,
-    //   });
-    // }
-
-    console.log("koToEnSrcWordCount:", koToEnSrcWordCount);
-    console.log("enToLangSrcCharCount:", enToLangSrcCharCount);
-    // JSON 파일로 저장
-    // await saveItemsToJson(items);
+    // await saveItemsToJson(items); // JSON 파일로 저장
+    await saveItemsToExcel(items); // excel 파일로 저장
 
     res.status(201).json({ message: "Project created successfully" });
   } catch (error) {
@@ -231,4 +216,39 @@ async function saveItemsToJson(items) {
   } catch (error) {
     console.error("JSON 파일 생성 중 오류가 발생했습니다:", error);
   }
+}
+
+//excel 파일로 저장
+async function saveItemsToExcel(items) {
+  const workbook = new ExcelJS.Workbook();
+  const worksheet = workbook.addWorksheet("Projects");
+
+  worksheet.addRow([
+    "Project ID",
+    "Project Title",
+    "Source Language Code",
+    "Target Language Code",
+    "Sentences Count",
+    "Total Src Char Count",
+    "Total Src Word Count",
+    "Total Tgt Char Count",
+    "Total Tgt Word Count",
+  ]);
+
+  for (const item of items) {
+    worksheet.addRow([
+      item.projectId,
+      item.projectTitle,
+      item.srcLangCode,
+      item.tgtLangCode,
+      item.sentencesCount,
+      item.totalSrcCharCount,
+      item.totalSrcWordCount,
+      item.totalTgtCharCount,
+      item.totalTgtWordCount,
+    ]);
+  }
+
+  await workbook.xlsx.writeFile("projects.xlsx");
+  console.log("projects.xlsx 파일이 생성되었습니다.");
 }
